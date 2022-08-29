@@ -1,0 +1,368 @@
+---
+title: "Using RJAGS alongside Quarto"
+author: "Josh Cowley"
+date: "2022-09-01"
+
+description: |
+  Using `rjags` in a quarto document lacks comforts such as a progress bar
+  due to knitr complications.
+  But can we leverage the power of R to workaround such an issue?
+
+categories: [jags, quarto, bayesian]
+
+image: "jack-foster-WcUArCQXXYE-unsplash.jpg"
+
+bibliography: rjags-and-quarto.bib
+---
+
+```{r setup}
+#| include = FALSE
+library(rjags)
+library(palmerpenguins)
+```
+
+## What is JAGS?
+
+For those involved in Bayesian statistics, inferences often lie behind some
+Markov Chain Monte Carlo (MCMC) algorithm that must be created to fit the model.
+There are commonly two approaches to this problem
+
+1.  imperative programming: steps are executed in a logical order
+    language such as R or Python.
+
+2.  declarative programming where the model or desired outcome is explained and
+    any details on how to compute this is left to the program.
+
+JAGS [@Plummer03jags] as in "Just Another Gibbs Sampler", is one such language
+that is designed to work with R, although the actual implementation is written
+in C++, presumable for optimisation reasons.
+
+Various tutorials on JAGS can be found elsewhere and the official website for
+JAGS (<https://sourceforge.net/projects/mcmc-jags/>) has a user manual and forum
+for further reading.
+
+
+## Issue
+
+RJAGS only produces a progress bar when the session is `interactive`, which is
+not the case when knitting in R markdown or Quarto.
+Hence, a model with a long runtime within a report workflow will not show 
+updates and leave the user unsure if the code is even still running!
+
+We see this explicitly within the internal `update.jags` method,
+[line 35](https://github.com/cran/rjags/blob/master/R/jags.object.R#L35),
+
+```{.r}
+do.pb <- interactive() && !is.null(progress.bar) && n.iter >= 100
+```
+
+One easy solution would be to execute a script offline, save the results,
+then load the object during the report compilation stage.
+
+However, I find this solution unsatisfactory as I prefer a workflow where the 
+model fitting and report generation are intertwined; each fit results in a 
+report to be discussed and analysed.
+
+
+## Attempt 1 - Array slicing
+
+Initially I tried sampling sequentially and placing the results into an array
+piece by piece.
+This becomes complicated when thinning is involved as the sampler is still 
+moving but only every n-th sample is to be saved.
+My main argument against this is the unreadability and high risk of unintended
+bugs.
+
+
+## Attempt 2 - Extend RJAGS
+
+Recall, our issue is with code in the `update.jags` method, that is the
+generic `stats::update` is called first which delegates to the `update.jags` 
+method based on class.
+See <https://adv-r.hadley.nz/s3.html> for more information.
+
+Hence, we could create a subclass of `jags` along with a new `update` method.
+By inheritance, we would still have all functionality of the original but with
+a more Quarto-friendly update method.
+
+Unfortunately, the first line of the `jags.samples` source code is
+
+```{.r}
+if (class(model) != "jags") stop("Invalid JAGS model")
+```
+
+If we made a subclass, then `class(model)` would be `c("jags_subclass", "jags")`
+and an error would be thrown, any extensibility to JAGS model is denied.
+We would ideally see,
+
+```{.r}
+if (!inherits(model, "jags")) stop("Invalid JAGS model")
+```
+
+but that is simply not the case.
+
+
+## Proposed Solution
+
+We plan to take advantage of how functions and environments work in R, 
+specifically,
+
+1. each function is associated with an environment;
+
+1. whenever a package is loaded, it is added as a parent of the current 
+   environment
+   
+:::{.callout-warning}
+The second point is not **strictly** true as the reality is much more complex,
+but how R finds a function associated with a package is important.
+:::
+
+For example, each exported function is associated with a namespace,
+
+```{r}
+environment(lm)
+```
+
+and by loading `rlang`, making its functions available, it becomes the direct
+parent of the global environment.
+
+```{r}
+#| warning = FALSE
+library(rlang)
+rlang::env_parents()
+```
+
+So, we can modify functions that are to be called within other functions beyond 
+our control by leveraging the environment of the function.
+
+For example, suppose we want to modify `is.matrix` when it is called somewhere
+in `lm`.
+
+We can achieves this by
+
+1. creating a copy of `lm`;
+
+1. changing its environment to a new (empty) environment
+
+1. make this new environment a child of the packages namespace;
+
+1. modifying `is.matrix` within the new environment;
+
+1. calling the copy of `lm` with this modified environment.
+
+::: {.callout-note}
+The created environment is a child of the namespace so the top-level functions
+(in this case, `lm`) can access internal functions.
+:::
+
+```{r}
+modified_lm <- function(...) {
+  lm <- stats::lm
+  
+  environment(lm) <- new.env(parent = rlang::ns_env("stats"))
+  
+  environment(lm)$is.matrix <- function(...) {
+    cat("MODIFIED")
+    return(is.matrix(...))
+  }
+  
+  lm(...)
+}
+```
+
+Applying these ideas to the problem at hand, we can introduce a *better* 
+progress bar into `jags.samples` using 
+[knitrProgressBar](https://rmflight.github.io/knitrProgressBar/) and even add
+documentation to put it into a package.
+
+```{r}
+#' Notebook Friendly Version of `jags.samples()`
+#'
+#' Modified version of \code{\link[rjags]{jags.samples}} that incorporates
+#'   [https://rmflight.github.io/knitrProgressBar/]{knitrProgressBar}.
+#'
+#' @inheritParams rjags::jags.samples
+#'
+#' @export
+jags_samples_quarto <- function(...) {
+  jags_samples <- rjags::jags.samples
+  
+  environment(jags_samples) <- new.env(parent = rlang::ns_env("rjags"))
+  
+  environment(jags_samples)$update.jags <- function(object, n.iter, ...) {
+    # Create 100-length vector relaying n.iter for each update
+    sub_iters <- unname(table(cut(seq_len(n.iter), 100)))
+    
+    if (n.iter < 100) sub_iters <- rep(1, n.iter)
+    
+    pb <- knitrProgressBar::progress_estimated(length(sub_iters))
+    
+    for (sub_iter in sub_iters) {
+      stats::update(object, n.iter = sub_iter, progress.bar = "none", ...)
+      knitrProgressBar::update_progress(pb)
+    }
+  }
+  
+  jags_samples(...)
+}
+```
+
+
+## Worked Example
+
+To ensure this new method is creating results we expect, suppose we are
+interested in fitting a Bayesian linear regression model to the
+[palmerpenguins](https://allisonhorst.github.io/palmerpenguins/) dataset.
+
+```{r}
+data("penguins", package = "palmerpenguins")
+
+# Remove any observations with missing data
+penguins <- stats::na.omit(penguins)
+
+# Extract our response variable
+y <- penguins$bill_length_mm
+
+# Extract our explanatory variables with an added intercept
+x <- cbind(Intercept = 1, penguins$bill_depth_mm, penguins$flipper_length_mm)
+```
+
+We store the following model specification in a text file named `bayes-lm.jags`
+
+::: {.cell}
+```{r}
+#| echo = FALSE,
+#| results = "asis"
+cat("```{.r .cell-code}", readLines("bayes-lm.jags"), "```", sep = "\n")
+```
+:::
+
+In the above file, we see that we still need to set the prior hyper-parameters.
+
+```{r}
+regr_prec <- 0.001
+prec_a <- 1
+prec_b <- 1
+```
+
+Now we are ready to create a model object,
+
+```{r}
+#| results = "hide"
+model <- 
+  jags.model(
+    file = "bayes-lm.jags",
+    data = list(
+      y = y,
+      x = x,
+      regr_prec = regr_prec,
+      prec_a = prec_a,
+      prec_b = prec_b
+    )
+  )
+```
+
+discard any [burn-in](http://users.stat.umn.edu/~geyer/mcmc/burn.html),
+
+```{r}
+update(model, n.iter = 1e4)
+```
+
+Using the `rjags` version, we obtain posterior samples in `fit_original`.
+
+```{r}
+fit_original <- 
+  jags.samples(
+    model = model,
+    variable.names = c("regr", "prec"),
+    n.iter = 5e4,
+    thin = 5
+  )
+```
+
+And our updated version holds posterior samples in `fit_modified`.
+
+```{r}
+fit_modified <- 
+  jags_samples_quarto(
+    model = model,
+    variable.names = c("regr", "prec"),
+    n.iter = 5e4,
+    thin = 5
+  )
+```
+
+Due to the stochastic nature of MCMC these two objects won't be exactly equal
+but the posterior summaries should be *very* close.
+
+Posterior means for the regression parameters:
+
+```{r}
+#| collapse = TRUE,
+#| comment = "#>"
+print(fit_original$regr)
+
+print(fit_modified$regr)
+```
+
+And for the precision parameter:
+
+```{r}
+#| collapse = TRUE,
+#| comment = "#>"
+print(fit_original$prec)
+
+print(fit_modified$prec)
+```
+
+
+## Tl;dr
+
+:::{.callout-note collapse="true"}
+
+## Tl;dr
+
+Use environments in R to modify the `update.jags` method add your own progress
+bars that work in Quarto.
+
+For example,
+
+```{.r}
+#' Notebook Friendly Version of `jags.samples()`
+#'
+#' Modified version of \code{\link[rjags]{jags.samples}} that incorporates
+#'   [https://rmflight.github.io/knitrProgressBar/]{knitrProgressBar}.
+#'
+#' @inheritParams rjags::jags.samples
+#'
+#' @export
+jags_samples_quarto <- function(...) {
+  jags_samples <- rjags::jags.samples
+  
+  environment(jags_samples) <- new.env(parent = rlang::ns_env("rjags"))
+  
+  environment(jags_samples)$update.jags <- function(object, n.iter, ...) {
+    # Create 100-length vector relaying n.iter for each update
+    sub_iters <- unname(table(cut(seq_len(n.iter), 100)))
+    
+    if (n.iter < 100) sub_iters <- rep(1, n.iter)
+    
+    pb <- knitrProgressBar::progress_estimated(length(sub_iters))
+    
+    for (sub_iter in sub_iters) {
+      stats::update(object, n.iter = sub_iter, progress.bar = "none", ...)
+      knitrProgressBar::update_progress(pb)
+    }
+  }
+  
+  jags_samples(...)
+}
+```
+
+:::
+
+
+## Image Credit {.appendix}
+
+Credit for the [image](https://unsplash.com/photos/WcUArCQXXYE) used in this
+post goes to [Jack Foster](https://unsplash.com/jxckfoster).
