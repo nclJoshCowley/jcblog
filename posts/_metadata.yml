@@ -1,0 +1,12 @@
+# Freeze computational output
+freeze: true
+
+# Enable banner style title blocks
+title-block-banner: true
+
+# Author name of all blog posts
+author: "Josh Cowley"
+
+# Table of content settings
+toc: true
+toc-depth: 2
