@@ -17,6 +17,7 @@ bibliography: rjags-and-quarto.bib
 
 ```{r setup}
 #| include = FALSE
+renv::use(lockfile = "renv.lock")
 library(rjags)
 library(palmerpenguins)
 ```
