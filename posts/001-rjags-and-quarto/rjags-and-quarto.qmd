@@ -228,13 +228,18 @@ y <- penguins$bill_length_mm
 x <- cbind(Intercept = 1, penguins$bill_depth_mm, penguins$flipper_length_mm)
 ```
 
-We store the following model specification in a text file named `bayes-lm.jags`
+We store the following model specification in a `.jags` text file.
 
 ::: {.cell}
 ```{r}
 #| echo = FALSE,
 #| results = "asis"
-cat("```{.r .cell-code}", readLines("bayes-lm.jags"), "```", sep = "\n")
+cat(
+    "```{.r .cell-code filename=bayes-lm.jags}",
+    readLines("bayes-lm.jags"),
+    "```",
+    sep = "\n"
+)
 ```
 :::
 
