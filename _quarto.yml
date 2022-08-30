@@ -3,6 +3,7 @@ project:
 
 website:
   title: "Josh Cowley"
+  site-url: https://josh.quarto.pub/
   navbar:
     left:
       - icon: github
