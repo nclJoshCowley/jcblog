@@ -10,3 +10,8 @@ author: "Josh Cowley"
 # Table of content settings
 toc: true
 toc-depth: 2
+
+# Comments below each post
+comments:
+  utterances:
+    repo:  nclJoshCowley/jcblog
