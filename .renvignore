@@ -1,0 +1,2 @@
+# Posts with lock files to be ignored during creation of new lock files
+posts/001-rjags-and-quarto
