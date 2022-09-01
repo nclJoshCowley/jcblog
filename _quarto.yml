@@ -8,6 +8,8 @@ website:
     left:
       - icon: github
         href: https://github.com/nclJoshCowley
+      - icon: envelope
+        href: mailto:j.cowley1@ncl.ac.uk
       - icon: linkedin
         href: https://www.linkedin.com/in/josh-cowley-28a3a7194/
     right:
