@@ -1,0 +1,24 @@
+Package: MixRegrApp
+Title: Mixture of Regressions App
+Description: Brief Shiny application to create Mixture of Regressions data.
+Version: 0.0.0.9000
+AuthorUrl: https://josh.quarto.pub/
+Authors@R: 
+    person(given = "Josh",
+           family = "Cowley",
+           role = c("aut", "cre"),
+           email = "j.cowley1@ncl.ac.uk")
+Maintainer: Josh Cowley <j.cowley1@ncl.ac.uk>
+License: GPL-3
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.1.2
+Imports:
+    ggplot2,
+    pkgload,
+    rlang,
+    shiny,
+    shinyMatrix,
+    stats,
+    tidyr,
+    tidyselect,
