@@ -1,0 +1,14 @@
+name: MixRegrApp
+title: MixRegrApp
+username:
+account: ncljoshcowley
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 7015279
+bundleId: 6302748
+url: https://ncljoshcowley.shinyapps.io/MixRegrApp/
+when: 1663190459.69644
+lastSyncTime: 1663190459.69644
+asMultiple: FALSE
+asStatic: FALSE
+ignoredFiles: .Rbuildignore|NAMESPACE|man
