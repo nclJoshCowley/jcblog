@@ -395,7 +395,7 @@ This structure can be published to service providers such as
     if required.
     
 All code for this particular example is available from this blogs GitHub page,
-    that is, <https://google.com/update-this>.
+    that is, <https://github.com/nclJoshCowley/jcblog/tree/master/posts/2022-09-15-shiny-simulation-study/MixRegrApp>.
     
 ## Upshot
 
