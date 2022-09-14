@@ -4,7 +4,7 @@ author: "Josh Cowley"
 date: "2022-09-01"
 
 description: |
-  Using `rjags` in a quarto document lacks comforts such as a progress bar
+  Using rjags in a quarto document lacks comforts such as a progress bar
   due to knitr complications.
   But can we leverage the power of R to workaround such an issue?
 
@@ -12,7 +12,7 @@ categories: [jags, quarto, bayesian]
 
 image: "jack-foster-WcUArCQXXYE-unsplash.jpg"
 
-bibliography: rjags-and-quarto.bib
+bibliography: "2022-09-01-rjags-and-quarto.bib"
 ---
 
 ```{r setup}
