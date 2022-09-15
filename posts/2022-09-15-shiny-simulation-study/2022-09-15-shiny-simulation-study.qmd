@@ -195,14 +195,15 @@ There are two necessary functions `app_ui` and `app_server` to handle the
     frontend (inputs and outputs) and the backend (computation and simulation)
     respectively.
 
-First we define the inputs to all appear on a sidebar
+First we define the inputs to all appear on a sidebar,
     see <https://rstudio.github.io/shinydashboard/> and other resources for 
-    different appearances not covered here.
+    different layouts not covered here.
     
 Each argument to `sidebarPanel` is a different input that allows for different
     data entry types.
-Most inputs methods take the following form where further arguments typically 
-    provide further control such as setting minimum allowable values.
+Most input methods take the following form where further arguments typically 
+    provide further control such as setting minimum and maximum allowable
+    values.
 
 ```{.r .cell-code}
 someInput(inputId, label, value, ...)
@@ -242,13 +243,13 @@ inputs <-
 
 The output of this app are simply plot objects, so we combine each plot into a 
     tabset that can be navigated without sacrificing screen real-estate.
-Each output function defined the location of the plot, its dimensions and an ID
-    to be used by the server. It does not create the plot or do any requisite
-    computation.
+Each `someOutput` function defines the location of the plot, its dimensions and 
+    an ID to be used by the server. It does not create the plot or do any 
+    requisite computation.
     
 :::{.callout-note collapse="true"}
 ### Outputs
-```{.r cell-code}
+```{r}
 outputs <-
   shiny::mainPanel(
     shiny::tabsetPanel(
@@ -270,7 +271,7 @@ outputs <-
 
 We then combine both of these constituents of IO into a titled fluid page.
 
-```{.r cell-code}
+```{.r}
 # Return a single fluid page for I/O
 shiny::fluidPage(
   shiny::titlePanel("Mixture of Regressions - Simulation Study App"),
@@ -278,7 +279,7 @@ shiny::fluidPage(
 )
 ```
 
-The entire process is combined into a single function as shown in `ui.R`
+The entire process is combined into a single function as shown in `ui.R`.
 
 :::{.callout-note collapse="true"}
 ### `ui.R`
@@ -319,14 +320,14 @@ We use reactive wherever an expression may change over time, usually by an
 This is used twice in the example, once as a derived quantity where we
     combine our probabilities (from 4 separate inputs) into a single vector.
 
-```{.r cell-code}
+```{.r}
 probs <- shiny::reactive(c(input$prob1, input$prob2, input$prob3, input$prob4))
 ```
 
 This quantity is then accessed via `probs()`.
 
-:::{.callout-note collapse="true"}
-`reactive`` takes any expression so *could* have done more computation if we 
+:::{.callout-note}
+`reactive` takes any expression so we *could* have done more computation if we 
     desired, for example validating they all sum to 1.
 :::
 
@@ -335,7 +336,7 @@ We combine all of our main data simulating into single method with a `set.seed`
 This ensure the seed is set once (and only once) so our simulation works as it 
     would in a separate script, should we need to retrace our steps.
   
-```{.r cell-code}
+```{.r}
 simdata <- 
   shiny::reactive({
     set.seed(input$seed)
@@ -358,7 +359,7 @@ If computation time is significant, better designs that update parts at a time
 Finally, we must assign objects to our output argument. This is done by the 
     methods defined in `visualise.R` making the code fairly readable.
   
-```{.r cell-code}
+```{.r}
 output$scatterplot <-
   shiny::renderPlot(vis_scatterplot(simdata()$x, simdata()$y, simdata()$z))
 
@@ -385,9 +386,15 @@ cat(
 Now we can run our app using `app.R`, which is one line for loading the package
     (that is, anything in `R/` and `data/`) and another to run the actual app.
 
-```{.r cell-code filename=app.R}
-pkgload::load_all(".")
-shiny::shinyApp(app_ui(), app_server())
+```{r}
+#| echo = FALSE,
+#| results = "asis"
+cat(
+  "```{.r .cell-code filename=app.R}",
+  readLines("MixRegrApp/app.R"),
+  "```",
+  sep = "\n"
+)
 ```
 
 This structure can be published to service providers such as 
@@ -433,12 +440,17 @@ development using tools such as [`golem`](https://github.com/ThinkR-open/golem).
 
 ## Tl;dr
 
-**TODO**.
+By creating a package to contain all required code (`R/`) and data (`data/`) we
+can create a simple script (`app.R`) alongside a `DESCRIPTION` file, listing
+dependencies, that creates a minimal shiny app.
+
+Using this idea in a simulation study setting allows for live visualisation 
+updates for any parameter change.
 
 :::
 
 
-## Image Credit {.appendix}
+## Image {.appendix}
 
-Credit for the [image](https://unsplash.com/photos/WcUArCQXXYE) used in this
-post goes to [Jack Foster](https://unsplash.com/jxckfoster).
+The photo is of Trent Building, Nottingham, taken by me on the 7th 
+    September 2022.
