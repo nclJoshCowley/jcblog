@@ -9,7 +9,7 @@ description: |
   a small-scale Shiny application.
 
 categories: [shiny, simulation]
-# image: "jack-foster-WcUArCQXXYE-unsplash.jpg"
+image: "20220907_174235.jpg"
 bibliography: "2022-09-15-shiny-simulation-study.bib"
 ---
 
