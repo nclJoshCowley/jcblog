@@ -182,7 +182,7 @@ documentation to put it into a package.
 #' Modified version of \code{\link[rjags]{jags.samples}} that incorporates
 #'   [https://rmflight.github.io/knitrProgressBar/]{knitrProgressBar}.
 #'
-#' @inheritParams rjags::jags.samples
+#' @param ... passed to \code{\link[rjags]{jags.samples}}.
 #'
 #' @export
 jags_samples_quarto <- function(...) {
@@ -339,7 +339,7 @@ For example,
 #' Modified version of \code{\link[rjags]{jags.samples}} that incorporates
 #'   [https://rmflight.github.io/knitrProgressBar/]{knitrProgressBar}.
 #'
-#' @inheritParams rjags::jags.samples
+#' @param ... passed to \code{\link[rjags]{jags.samples}}.
 #'
 #' @export
 jags_samples_quarto <- function(...) {
