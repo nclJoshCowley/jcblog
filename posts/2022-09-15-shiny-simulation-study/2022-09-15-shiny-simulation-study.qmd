@@ -18,6 +18,21 @@ bibliography: "2022-09-15-shiny-simulation-study.bib"
 renv::use(lockfile = "renv.lock")
 ```
 
+## Tl;dr
+
+:::{.callout-note collapse="true"}
+
+## Tl;dr
+
+By creating a package to contain all required code (`R/`) and data (`data/`) we
+can create a simple script (`app.R`) alongside a `DESCRIPTION` file, listing
+dependencies, that creates a minimal shiny app.
+
+Using this idea in a simulation study setting allows for live visualisation 
+updates for any parameter change.
+
+:::
+
 ## Why?
 
 Last week, I attended the [RSC][rsc-link] (Research Student Conference) 2022 in
@@ -432,21 +447,6 @@ using R markdown or [send an email][mailtrap].
   
 Any further work is project specific and can lead to more involved shiny 
 development using tools such as [`golem`](https://github.com/ThinkR-open/golem).
-
-## Tl;dr
-
-:::{.callout-note collapse="true"}
-
-## Tl;dr
-
-By creating a package to contain all required code (`R/`) and data (`data/`) we
-can create a simple script (`app.R`) alongside a `DESCRIPTION` file, listing
-dependencies, that creates a minimal shiny app.
-
-Using this idea in a simulation study setting allows for live visualisation 
-updates for any parameter change.
-
-:::
 
 ## Image Credit {.appendix}
 
