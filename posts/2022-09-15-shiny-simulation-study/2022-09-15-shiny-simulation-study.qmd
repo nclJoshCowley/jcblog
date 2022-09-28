@@ -15,8 +15,7 @@ bibliography: "2022-09-15-shiny-simulation-study.bib"
 
 ```{r setup}
 #| include = FALSE
-# renv::use(lockfile = "renv.lock")
-
+renv::use(lockfile = "renv.lock")
 ```
 
 ## Why?
