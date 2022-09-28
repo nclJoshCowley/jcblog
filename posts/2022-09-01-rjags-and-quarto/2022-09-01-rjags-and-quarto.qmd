@@ -367,8 +367,9 @@ jags_samples_quarto <- function(...) {
 
 :::
 
-
 ## Image Credit {.appendix}
 
-Credit for the [image](https://unsplash.com/photos/WcUArCQXXYE) used in this
-post goes to [Jack Foster](https://unsplash.com/jxckfoster).
+[Jack Foster](https://unsplash.com/jxckfoster).
+September 14th, 2020.
+"Brown bridge over body of water during daytime".
+[Source](https://unsplash.com/photos/WcUArCQXXYE).

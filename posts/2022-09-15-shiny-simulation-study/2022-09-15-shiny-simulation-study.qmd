@@ -448,8 +448,8 @@ updates for any parameter change.
 
 :::
 
+## Image Credit {.appendix}
 
-## Image {.appendix}
-
-The photo is of Trent Building, Nottingham, taken by me on the 7th 
-    September 2022.
+Josh Cowley.
+September 7th, 2022.
+"Trent Building, Nottingham".
