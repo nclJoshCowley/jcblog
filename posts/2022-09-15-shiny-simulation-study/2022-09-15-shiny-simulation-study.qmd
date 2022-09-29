@@ -8,7 +8,7 @@ description: |
   author's point. Here, we show how a dataset can be picked interactively using
   a small-scale Shiny application.
 
-categories: [shiny, simulation]
+categories: [shiny]
 image: "20220907_174235.jpg"
 bibliography: "2022-09-15-shiny-simulation-study.bib"
 ---
