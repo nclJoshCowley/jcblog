@@ -1,6 +1,5 @@
 ---
 title: "Using RJAGS alongside Quarto"
-author: "Josh Cowley"
 date: "2022-09-01"
 
 description: |
@@ -9,9 +8,7 @@ description: |
   But can we leverage the power of R to workaround such an issue?
 
 categories: [jags, quarto, bayesian]
-
 image: "jack-foster-WcUArCQXXYE-unsplash.jpg"
-
 bibliography: "2022-09-01-rjags-and-quarto.bib"
 ---
 

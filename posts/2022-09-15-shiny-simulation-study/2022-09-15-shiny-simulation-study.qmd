@@ -1,6 +1,5 @@
 ---
 title: "Using Shiny in a Simulation Study"
-author: "Josh Cowley"
 date: "2022-09-15"
 
 description: |
