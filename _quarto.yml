@@ -4,6 +4,12 @@ project:
 website:
   title: "Josh Cowley"
   site-url: https://josh.quarto.pub/
+  google-analytics:
+    tracking-id: "G-M6072TN61F"
+    anonymize-ip: true
+  cookie-consent: 
+    style: headline
+    palette: light
   navbar:
     left:
       - icon: github
