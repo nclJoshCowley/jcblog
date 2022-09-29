@@ -1,0 +1,386 @@
+---
+title: "Programmatic Tabsets in Quarto"
+date: "2022-09-29"
+
+description: |
+  Tabsets are a powerful tool available, in Quarto, that allows us to hide
+  content into clearly separated sub-pages. Can we extend the Quarto syntax
+  for tabs to work with an unknown number of elements?
+  
+categories: [quarto]
+image: "20220929_154602.jpg"
+---
+
+```{r setup}
+#| include = FALSE
+renv::use(lockfile = "renv.lock")
+
+library(jcutils)
+jcutils::knitr_default_setup(echo = TRUE)
+
+library(ggplot2)
+library(gt)
+library(knitr)
+library(mcmcr)
+library(purrr)
+library(tibble)
+```
+
+## Tl;dr
+
+:::{.callout-note collapse="true"}
+
+## Tl;dr
+
+Here is the version I use in my utility package [`jcutils`][jcutils].
+
+[jcutils]:
+  https://github.com/nclJoshCowley/jcutils
+
+Set the chunk option `results: asis` and call this method on a named list with
+    the appropriate `.f` method to be called on each list element.
+See examples for further clarification.
+
+```{.r}
+#' Output List Elements as Tabset
+#'
+#' Map elements through `.f` and wrap each output into a tab within a tabset.
+#'
+#' @param .x list to be looped over, names inform tab headings.
+#' @param .f function or formula. See \code{\link[purrr]{as_mapper}}.
+#' @param type choice, Quarto or R Markdown. Which rendering program is used?
+#' @param ... extra arguments passed to `.f`
+#'
+#' @return `.x` is silently returned to allow for piping.
+#'
+#' @export
+knitr_tabset <- function(.x, .f, type = c("quarto", "rmd"), ...) {
+  if (missing(.f)) .f <- print
+  .f <- purrr::as_mapper(.f, ...)
+
+  nms <- if (is.null(names(.x))) seq_along(.x) else names(.x)
+
+  header <-
+    switch(
+      match.arg(type),
+      quarto = ":::: {.panel-tabset}",
+      rmd = "#### { .tabset .unlisted .unnumbered}"
+    )
+
+  footer <-
+    switch(
+      match.arg(type),
+      quarto = "::::",
+      rmd = "#### {.unlisted .unnumbered}"
+    )
+
+  cat(header, "\n\n", sep = "")
+
+  for (i in seq_along(.x)) {
+    cat("##### ", nms[i], "\n\n", sep = "")
+    .f(.x[[i]], ...)
+    cat("\n\n")
+  }
+
+  cat(footer)
+
+  invisible(.x)
+}
+```
+
+:::
+
+## What are tabsets?
+
+Tabsets are a feature of HTML and as such can be made using basic HTML code,
+    styled using css and improved even further using javascript.
+See below for an example adapted from
+    [w3schools](https://www.w3schools.com/howto/howto_js_tabs.asp).
+
+<details><summary>Show HTML source code</summary>
+```{r show-html-code}
+#| echo: false
+#| results: asis
+w3schools_eg <- readLines("w3schools-example.html")
+cat("```{.html .cell-code}", w3schools_eg, "```", sep = "\n")
+```
+</details>
+
+{{< include w3schools-example.html >}}
+
+## Quarto Syntax
+
+Creating such a tabset in Quarto is a lot simpler and is documented
+    [here](https://quarto.org/docs/interactive/layout.html#tabset-panel).
+
+Thus, we can reproduce the same result with a few stylistic difference using
+    the suggested syntax.
+
+```{.markdown .cell-code}
+::: {.panel-tabset}
+
+## London
+
+London is the capital city of England.
+
+## Paris
+
+Paris is the capital of France.
+
+## Tokyo
+
+Tokyo is the capital of Japan.
+
+:::
+```
+
+Which is a really powerful method of creating tabs when the content is known
+beforehand.
+
+## R Markdown Syntax
+
+Quarto improved on functionality available in R Markdown by removing the 
+    restriction of a main heading level.
+
+In R markdown, tabsets require a section heading at some level, say h2, and 
+    then all subsequent tabs can be split by h3 headings.
+Further to symbolise the end of the tabset, an empty h2 header is required
+    which would often disrupt table of contents functionality.
+
+See [R markdown cookbook](bookdown.org/yihui/rmarkdown-cookbook/html-tabs.html)
+    for more information.
+
+In my experience, if the heading is not one degree apart, the tabs simply 
+    don't work and default to normal sections.
+
+For example
+
+```{.markdown .cell-code}
+## Capitals {.tabset}
+
+Default tab
+
+### London
+
+London is the capital city of England.
+
+### Paris
+
+Paris is the capital of France.
+
+### Tokyo
+
+Tokyo is the capital of Japan.
+
+## {-}
+```
+
+## Motivation
+
+In my research, I often worked with MCMC output and would want one tab per each
+    chain of output.
+For a parameterised report, the number of chains is not constant, may change
+    and prohbit using the previos syntax.
+    
+We can instead use `results: asis` to programmatically make tabsets.
+
+````{.r}
+#| results: asis
+mcmc_eg <- mcmcr::mcmcr_example$sigma
+n_chains <- mcmcr::nchains(mcmc_eg)
+n_iters <- mcmcr::niters(mcmc_eg)
+
+cat("::: {.panel-tabset}")
+
+for (i in seq_len(n_chains)) {
+  cat("\n", sprintf("## Chain %i", i), "\n\n", sep = "")
+  
+  p <- 
+    ggplot2::qplot(
+      x = seq_len(n_iters),
+      xlab = "Iteration",
+      y = mcmc_eg[i, , ], 
+      ylab = "Sigma (Posterior Draws)",
+      geom = "line"
+    )
+  
+  print(p)
+}
+
+cat(":::")
+````
+
+````{r mcmc-eg}
+#| echo: FALSE
+#| results: asis
+mcmc_eg <- mcmcr::mcmcr_example$sigma
+n_chains <- mcmcr::nchains(mcmc_eg)
+n_iters <- mcmcr::niters(mcmc_eg)
+
+cat("::: {.panel-tabset}")
+
+for (i in seq_len(n_chains)) {
+  cat("\n", sprintf("## Chain %i", i), "\n\n", sep = "")
+  
+  p <- 
+    ggplot2::qplot(
+      x = seq_len(n_iters),
+      xlab = "Iteration",
+      y = mcmc_eg[i, , ], 
+      ylab = "Sigma (Posterior Draws)",
+      geom = "line"
+    )
+  
+  print(p)
+}
+
+cat(":::")
+````
+
+We want to use this code pattern [multiple times](rule-of-three), so ideally 
+    it can be extracted into a new function.
+
+[rule-of-three]:
+  https://en.wikipedia.org/wiki/Rule_of_three_(computer_programming)
+
+## Mapping Function
+    
+In the previous example, each list element is plotted, but what about where
+    each element in plain text? a `kable` object?
+We could change to `print` but that leads to issues with `gt` in my experience.
+
+Here is the version of the function I currently use, if there are any issues
+    let me know in the comments below this post.
+
+```{r knitr-tabset}
+knitr_tabset <- function(.x, .f, type = c("quarto", "rmd"), ...) {
+  if (missing(.f)) .f <- print
+  .f <- purrr::as_mapper(.f, ...)
+
+  nms <- if (is.null(names(.x))) seq_along(.x) else names(.x)
+
+  header <-
+    switch(
+      match.arg(type),
+      quarto = ":::: {.panel-tabset}",
+      rmd = "#### { .tabset .unlisted .unnumbered}"
+    )
+
+  footer <-
+    switch(
+      match.arg(type),
+      quarto = "::::",
+      rmd = "#### {.unlisted .unnumbered}"
+    )
+
+  cat(header, "\n\n", sep = "")
+
+  for (i in seq_along(.x)) {
+    cat("##### ", nms[i], "\n\n", sep = "")
+    .f(.x[[i]], ...)
+    cat("\n\n")
+  }
+
+  cat(footer)
+
+  invisible(.x)
+}
+```
+
+Looking at the source, we see a few key decisions, such as:
+
+a. tabsets are named according to the same logic in
+   [`purrr::imap`](https://purrr.tidyverse.org/reference/imap.html);
+
+a. the logic applied to each element can be changed to an arbitrary function;
+
+a. Quarto or R markdown syntax is supported.
+
+::: {.callout-note}
+For the R Markdown version, we simply use an empty heading that is unlisted
+    and unnumbered.
+:::
+    
+::: {.callout-note}
+Since this method is to be called for its side effects, we return the original
+    object to allow better piping.
+So `x_new <- x %>% knit_tabset() %>% transform()` is equivalent to
+    `knit_tabset(x)` and `x_new <- transform(x)`.
+:::
+
+## Examples
+
+Each of these examples are applied on simple polynomial data and must also have
+    the chunk options `results: asis` (not shown).
+
+```{r eg-data}
+x <- seq(from = -20, to = 20, by = 1)
+
+y <- lapply(seq_len(4), function(n) x^n)
+names(y) <- paste0("X^", seq_len(4))
+```
+
+### String Printing
+
+```{r eg-string-print}
+#| results: asis
+knitr_tabset(y, ~ print(toString(.x)))
+```
+
+```{r eg-string-cat}
+#| results: asis
+knitr_tabset(y, ~ cat(toString(.x)))
+```
+
+### `ggplot2`
+
+```{r eg-ggplot2}
+#| results: asis
+y_plots <- lapply(y, function(.y) ggplot2::qplot(x, .y, geom = "line"))
+knitr_tabset(y, plot)
+```
+
+### `kable`
+
+```{r eg-kable}
+#| results: asis
+y_summary <-
+  lapply(y, function(.y) tibble::enframe(summary(.y), "Statistic", "Value"))
+
+y_kables <- lapply(y_summary, knitr::kable)
+
+knitr_tabset(y_kables, print)
+```
+
+### `gt`
+
+```{r eg-gt}
+#| results: asis
+y_gts <- lapply(y_summary, gt::gt)
+
+# Either prints to RStudio or causes Quarto to fail!
+# knitr_tabset(y_gts, .f = print)
+
+# Works by printing tables as html
+knitr_tabset(y_gts, ~ cat(gt::as_raw_html(.x)))
+```
+
+### Nested
+
+```{r eg-nested}
+#| results: asis
+y_nested <- purrr::transpose(list(Summary = y_kables, Plot = y_plots))
+
+knitr_tabset(y_nested, ~ knitr_tabset(.x, print))
+```
+
+## Issues {.appendix}
+
+During the creation of this post, I realised this function will not work with 
+    the `echo: fenced` option due to echoed code interfering with the output.
+
+## Image Credit {.appendix}
+
+Josh Cowley.
+September 29th, 2022.
+"King's Gate, Newcastle Upon Tyne".
