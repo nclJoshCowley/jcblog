@@ -1,2 +1,4 @@
 # Posts with lock files to be ignored during creation of new lock files
-posts/001-rjags-and-quarto
+posts/2022-09-01-rjags-and-quarto
+posts/2022-09-15-shiny-simulation-study
+posts/2022-09-29-quarto-tabsets

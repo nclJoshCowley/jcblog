@@ -27,24 +27,6 @@
         "lattice"
       ]
     },
-    "R.methodsS3": {
-      "Package": "R.methodsS3",
-      "Version": "1.8.2",
-      "Source": "Repository",
-      "Repository": "CRAN",
-      "Hash": "278c286fd6e9e75d0c2e8f731ea445c8",
-      "Requirements": []
-    },
-    "R.oo": {
-      "Package": "R.oo",
-      "Version": "1.25.0",
-      "Source": "Repository",
-      "Repository": "CRAN",
-      "Hash": "a0900a114f4f0194cf4aa8cd4a700681",
-      "Requirements": [
-        "R.methodsS3"
-      ]
-    },
     "R6": {
       "Package": "R6",
       "Version": "2.5.1",
@@ -122,16 +104,6 @@
       "Hash": "da5160e769a652e3ec7111d63883f9bc",
       "Requirements": [
         "glue"
-      ]
-    },
-    "coda": {
-      "Package": "coda",
-      "Version": "0.19-4",
-      "Source": "Repository",
-      "Repository": "CRAN",
-      "Hash": "24b6d006b8b2343876cf230687546932",
-      "Requirements": [
-        "lattice"
       ]
     },
     "colorspace": {
@@ -394,17 +366,6 @@
         "yaml"
       ]
     },
-    "knitrProgressBar": {
-      "Package": "knitrProgressBar",
-      "Version": "1.1.0",
-      "Source": "Repository",
-      "Repository": "CRAN",
-      "Hash": "0eff7cdf2ade50ff15e43bfeb13b92ed",
-      "Requirements": [
-        "R.oo",
-        "R6"
-      ]
-    },
     "labeling": {
       "Package": "labeling",
       "Version": "0.4.2",
@@ -519,14 +480,6 @@
       "Hash": "95e8c3825efcaad09411799da92c0af9",
       "Requirements": []
     },
-    "palmerpenguins": {
-      "Package": "palmerpenguins",
-      "Version": "0.1.1",
-      "Source": "Repository",
-      "Repository": "CRAN",
-      "Hash": "6c6861efbc13c1d543749e9c7be4a592",
-      "Requirements": []
-    },
     "pillar": {
       "Package": "pillar",
       "Version": "1.7.0",
@@ -609,16 +562,6 @@
       "Repository": "CRAN",
       "Hash": "6a38294e7d12f5d8e656b08c5bd8ae34",
       "Requirements": []
-    },
-    "rjags": {
-      "Package": "rjags",
-      "Version": "4-13",
-      "Source": "Repository",
-      "Repository": "CRAN",
-      "Hash": "0fd952ba9f2ff8006975e5ba1286d00a",
-      "Requirements": [
-        "coda"
-      ]
     },
     "rlang": {
       "Package": "rlang",
