@@ -1,0 +1,178 @@
+---
+title: "Time Series Visualisation with gghighlight and Shiny - Part 1"
+date: "2022-10-13"
+
+description: |
+  gghighlight is a package that allows a user to focus on a key point within an
+  otherwise messy visualisation. Will basic shiny functionality allow us to 
+  make this highlighting interactive?
+  
+categories: [ggplot2,shiny]
+image: "20221007_150430.jpg"
+---
+
+```{r setup}
+#| include = FALSE
+renv::use(lockfile = "renv.lock")
+
+library(ggplot2)
+library(gghighlight)
+library(dplyr) # %>%
+
+library(jcutils)
+jcutils::knitr_default_setup(echo = TRUE)
+
+source("R/simulate_correlated_normal.R")
+source("R/visualise_ts.R")
+```
+
+## Tl;dr
+
+:::{.callout-note collapse="true"}
+
+## Tl;dr
+
+Plotting many series of data leads illegible legends and colours. We make use
+    of the `gghighlight` package as a means of showing all data whilst also 
+    focusing on a single series.
+  
+See [Functions](#sec-functions) for implementation.
+
+:::
+
+This is part one of a two part series. Stay tuned till October 27th.
+
+## Static Visualisation
+
+The idea behind this plot is that we can draw a line for each data generating
+    process, which we will refer to as a collection of **series**.
+In my application this takes the form where each series is a separate well 
+    within a groundwater monitoring site.
+
+If the lines coalesce we can qualitatively infer that each series are 
+    somewhat correlated.
+    
+Conversely, if the lines deviate from each other at random the opposite is true.
+  
+For example compare these two plots with varying correlations.
+  
+```{r vis-ts-corr}
+simdata_corr <- simulate_correlated_normal(offdiag = 0.9)
+visualise_ts(simdata_corr)
+```
+
+
+```{r vis-ts-indep}
+simdata_indep <- simulate_correlated_normal(offdiag = 0.2)
+visualise_ts(simdata_indep)
+```
+
+## Functions {#sec-functions}
+
+The two functions used are defined as follows.
+
+<details><summary>Show data generating function.</summary>
+```{r simulate_correlated_normal}
+#| results: asis
+#| echo: false
+cat(
+    "```{.r .cell-code filename=simulate_correlated_normal.R}",
+    readLines("R/simulate_correlated_normal.R"),
+    "```",
+    sep = "\n"
+)
+```
+</details>
+
+<details><summary>Show visualisation function.</summary>
+```{r visualise_ts}
+#| results: asis
+#| echo: false
+cat(
+    "```{.r .cell-code filename=visualise_ts.R}",
+    readLines("R/visualise_ts.R"),
+    "```",
+    sep = "\n"
+)
+```
+</details>
+
+## Issue
+
+When there are many series, adding a legend would be hard to read and cause
+    confusion between similarly coloured lines.
+    
+[Adobe][adobe-datavis] suggests limiting categorical colours to 6, at most and 
+    states 12 colours are
+  
+> extremely difficult to understand
+
+If we were to re-add the legend, this fact becomes clear.
+
+```{r vis-ts-legend}
+visualise_ts(simulate_correlated_normal(offdiag = 0.9)) +
+  ggplot2::guides(colour = "legend")
+```
+
+So, we can see a global picture of the data but drilling down in specific 
+    series or understanding which series have high values or deviate from 
+    population trends is near impossible.
+
+## gghighlight
+
+The [`gghighlight`][gghighlight] package allows us to focus on a single value
+    within an aesthetic.
+    
+Therefore, if we were super interested in the 30th variable and how it appears
+    in these plots, we would add the function as follows using a `dplyr::filter`
+    syntax.
+
+```{.r}
+ggplot2::ggplot(...) +
+  ggplot2::geom_point(...) +
+  ggplot2::geom_line(...) +
+  gghighlight::gghighlight(series == "V30")
+```
+
+See the gghighlight documentation for more details.
+
+In our implementation, we allow for an optional variable (or variables!) to be
+    identified by name and then highlighted while reducing the other aesthetics
+    opacity from 0.8 to 0.2
+    
+```{r vis-ts-corr-highlight}
+visualise_ts(simdata_corr, highlight = "V30")
+```
+
+```{r vis-ts-indep-highlight}
+visualise_ts(simdata_indep, highlight = "V30")
+```
+
+```{r vis-ts-indep-highlight2}
+visualise_ts(simdata_indep, highlight = c("V1", "V30"))
+```
+    
+## Next Time
+
+Looking as these visualisations, there is a desire to  simply click on a line
+    and highlight the series it belongs to.
+    
+Obviously, this is not possible with a static image but what if we were to use
+    Shiny and the [`nearPoints`][nearPoints] function?
+
+## Image Credit {.appendix}
+
+Josh Cowley.
+October 7th, 2022.
+"The Catalyst, Newcastle Upon Tyne".
+
+<!-- Hyperlinks -->
+
+[gghighlight]:
+    https://yutannihilation.github.io/gghighlight/
+
+[nearPoints]:
+    https://shiny.rstudio.com/reference/shiny/0.13.2/nearPoints.html
+    
+[adobe-datavis]:
+    https://spectrum.adobe.com/page/color-for-data-visualization/
