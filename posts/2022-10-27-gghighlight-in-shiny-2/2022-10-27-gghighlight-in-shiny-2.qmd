@@ -1,0 +1,283 @@
+---
+title: "Time Series Visualisation with gghighlight and Shiny - Part 2"
+date: "2022-10-27"
+
+description: |
+  In the previous post, I showed how the gghighlight package can allow the 
+  showing of many time series in the background whilst focusing on a handful of
+  selected series. Can this idea be extended with interactivity?
+  
+  
+categories: [ggplot2,shiny]
+image: "20221025_134351.jpg"
+---
+
+```{r setup}
+#| include = FALSE
+renv::use(lockfile = "renv.lock")
+
+library(ggplot2)
+library(gghighlight)
+library(dplyr) # %>%
+
+library(jcutils)
+jcutils::knitr_default_setup(echo = TRUE, base_size = 24)
+
+source("app-current/simulate_correlated_normal.R")
+source("app-current/ggplot_ts.R")
+
+```
+
+## Tl;dr
+
+:::{.callout-note collapse="true"}
+
+## Tl;dr
+
+Updating a plot by click events on the same plot is not as straightforward as 
+    one would imagine and we must save clicks in a buffer.
+    
+For the advanced Shiny user, see the app at [`app-current/`][app-current].
+:::
+
+## Basic Setup
+
+Recall we can simulate data from the `simulate_correlated_normal` function,
+    this method is made available again but is only called once at the start
+    of the server function.
+    
+```{.r}
+ts_data <-
+  simulate_correlated_normal(...) %>%
+  tibble::rowid_to_column() %>%
+  tidyr::pivot_longer(-.data$rowid) %>%
+  dplyr::mutate(selected_ = FALSE)
+```
+
+We make a slight change to the visualisation method since the data wrangling
+    done at the start of function was causing some issues with Shiny's
+    `nearpoints` method.
+    
+```{embed}
+#| file: "app-current/ggplot_ts.R"
+#| filename: "app-current/ggplot_ts.R"
+```
+
+## App 1 - Naive Attempt
+
+The goal is simply to render a plot using the `ggplot_ts` function and update
+    one of its arguments when the plot is clicked on.
+    
+To achieve this on a static plot in Shiny is straightforward, supply an ID in
+    the UI section of the app:
+    
+```{.r}
+shiny::plotOutput("plot", click = "plot_click")
+```
+
+And then the click information is available via `input$plot_click` in the 
+    server side of the app. It typically looks like this.
+    
+```
+$x
+[1] 2.296508
+
+$y
+[1] 0.8685864
+
+$coords_css
+$coords_css$x
+[1] 157.1167
+
+$coords_css$y
+[1] 155
+
+
+$coords_img
+$coords_img$x
+[1] 177.5418
+
+$coords_img$y
+[1] 175.15
+
+... (etc.)
+
+```
+
+But, instead of working with this directly we can use the following to get
+    a subset of the plot data (`allRows = FALSE`) or the entire data with a
+    convenient column named `selected_` (`allRows = TRUE`).
+    
+```{.r}
+shiny::nearPoints(df, input$plot_click, maxpoints = 1, allRows = FALSE)
+```
+
+The **issue** arises that if we use this click information to update the plot.
+Then:
+
+1. the click information is updated by a user click,
+
+1. the plot updates via a defined action based on the click data,
+
+1. the plot re-renders and causes the user click information to reset to `NULL`,
+
+1. since the click information has changed the plot renders an erroneous 
+   second time, resetting to its original state.
+
+To see this in action, run the following reprex where the click information
+    and plot changes (the legend) are cleared almost instantly.
+    
+```{embed}
+#| file: "app-naive/app-naive.R"
+#| filename: "app-naive/app-naive.R"
+```
+
+## App 2 - Storing Click(s)
+
+A workaround, using somewhat deprecated and old code is described
+    [here][so-double-refresh-link].
+We can implement this too by defining a `reactiveValues` object.
+
+```{embed}
+#| file: "app-stored/app-stored.R"
+#| filename: "app-stored/app-stored.R"
+```
+
+This works as we store the click information in a buffer accessible by
+    `save_events$plot_click`.
+
+```{.r}
+saved_events <- reactiveValues(plot_click = NULL)
+```
+
+This is then updated by an observer within `bindEvent`. You can think of the
+    syntax `bindEvent(observe({ x }), ...)` as run `{ x }` whenever one of the 
+    events in `...` is triggered.
+
+By using this buffer the reflection where a plot update will update click
+    information is removed and only a click will update this buffer.
+    
+## `gghighlight`
+
+### Issue
+
+Back to the example at hand, extra care has to be given with `gghighlight` 
+    since it modifies the underlying plot object.
+
+In the current iteration of the app, we start with some time series data,
+
+```{r}
+ts_data <-
+  simulate_correlated_normal() %>%
+  tibble::rowid_to_column() %>%
+  tidyr::pivot_longer(-.data$rowid) %>%
+  dplyr::mutate(selected_ = FALSE)
+
+print(head(ts_data, 5))
+```
+
+And when no clicks have occurred, the plot is created via
+
+```{r}
+p1 <- ggplot_ts(ts_data, NULL)
+```
+
+and we see this object and the default mapping for each layer:
+
+```{r}
+#| layout-ncol: 2
+p1
+p1$mapping
+```
+
+<br>
+
+We can obtain the series name closest to a click using the following,
+    where `nearPoints` guesses the x-axis and y-axis variables.
+
+```{.r}
+tb <- shiny::nearPoints(ts_data, input$plot_click, maxpoints = 1)
+nm <- if (NROW(tb)) tb$name else NULL
+```
+
+Updating the plot is then straightforward, but the mapping for the first layer
+    has been altered.
+
+```{r}
+p2 <- ggplot_ts(ts_data, "V2")
+```
+    
+```{r}
+#| layout-ncol: 2
+p2
+p2$layers[[1]]$mapping
+```
+
+This (or some other difference between `p1` and `p2`) means that any subsequent
+    clicks will be looking for `highlight..........1` within the original data
+    which clearly doesn't exist and the app will crash.
+
+### Solution
+
+The solution to this is simple (after hours of finding trial and error!).
+We pass the `x` and `y` names explicitly in the `nearPoints` call:
+
+```{.r}
+tb <- shiny::nearPoints(..., xvar = "rowid", yvar = "value")
+nm <- if (NROW(tb)) tb$name else NULL
+```
+
+## App 3 - Final Version
+
+For the final version, I added some new features.
+
+1. Instead of a hidden buffer, store the selected series in a dropdown
+   (`selectInput`) that can be changed by the user or by a click.
+   
+1. Simulate two datasets and highlight both series in sync.
+
+Hence, the UI file is relatively simple for demonstration purposes, just two 
+    plots alongside a dropdown input.
+    
+```{embed}
+#| file: "app-current/ui.R"
+#| filename: "app-current/ui.R"
+```
+
+The server file loads the required functions, simulates two datasets and then 
+    implements what has been shown in this blog post within the server function.
+    
+```{embed}
+#| file: "app-current/server.R"
+#| filename: "app-current/server.R"
+```
+
+## Further Work
+
+Only one of the two plots change the series when clicked since `nearPoints` 
+    needs to know which dataset it is working on.
+The extension to 2 is straightforward but we would ideally have this work for
+    any number of plots.
+
+Shiny modules could allow this extension by using namespaces. Also modules 
+    also allow for functionality to be
+    
+- isolated for testing,
+
+- re-used multiple times in the same app,
+
+- more easily shared.
+
+## Image Credit {.appendix}
+
+Josh Cowley.
+October 25th, 2022.
+"Quayside Stone Sculptures, Newcastle Upon Tyne".
+
+<!-- Hyperlinks -->
+
+[app-current]:
+  https://github.com/nclJoshCowley/jcblog/tree/master/posts/2022-10-13-gghighlight-in-shiny-2/app-current
+  
+[so-double-refresh-link]:
+  https://stackoverflow.com/a/31441100
