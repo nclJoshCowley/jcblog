@@ -7,7 +7,6 @@ description: |
   showing of many time series in the background whilst focusing on a handful of
   selected series. Can this idea be extended with interactivity?
   
-  
 categories: [ggplot2,shiny]
 image: "20221025_134351.jpg"
 ---
