@@ -12,6 +12,8 @@ website:
         href: mailto:j.cowley1@ncl.ac.uk
       - icon: linkedin
         href: https://www.linkedin.com/in/josh-cowley-28a3a7194/
+      - icon: rss
+        href: index.xml
     right:
       - about.qmd
 
