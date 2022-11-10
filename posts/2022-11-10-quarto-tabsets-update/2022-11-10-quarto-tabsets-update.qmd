@@ -1,0 +1,309 @@
+---
+title: "Dynamic Tabsets in Quarto - An Update"
+date: "2022-11-10"
+
+description: |
+  In a previous post, `knitr_tabset` was introduced as a mean of programmatic
+  tabsets. Can we improve this function using `knit_print`?
+  
+categories: [quarto]
+# image: "TODO.jpg"
+---
+
+```{r setup}
+#| include = FALSE
+renv::use(lockfile = "renv.lock")
+
+library(dplyr)
+library(ggplot2)
+library(knitr)
+library(palmerpenguins)
+library(purrr)
+library(tibble)
+library(tidyr)
+
+library(jcutils)
+jcutils::knitr_default_setup(echo = TRUE)
+```
+
+## Tl;dr
+
+:::{.callout-note collapse="true"}
+
+## Tl;dr
+
+Knitr is printing via a generic `knit_print` meaning tabsets can be made 
+    automatic by including a specific method for lists.
+    
+If the `jcutils` package is installed (from [GitHub][jcutils-gh]) then,
+
+```{.r}
+registerS3method("knit_print", "list", jcutils::printer_tabset)
+```
+
+will convert list (including nested and ragged list) output to tabsets.
+
+:::
+
+
+## Previous Version
+
+In a [previous blog post,][jcblog-2022-09-29] I introduced a function that 
+    would take a list and print the contents as tabsets.
+  
+A few issues with this method include
+
+- the need for the `results: asis` chunk option,
+
+- the workaround (and knowledge) needed for `gt`, that is,
+    
+```{.r}
+knitr_tabset(y_gts, ~ cat(gt::as_raw_html(.x)))
+```
+
+It was actually a `gt` table that was causing a report to fail that inspired me
+    to look for a better solution.
+
+On [stack overflow][cderv-so] and related Quarto [issue comment][cderv-quarto],
+    Christophe Dervieux recommends using `knit_child` to create dynamic content
+    and also mentions the `knit_print` function.
+    
+
+## What is `knit_print`?
+
+The related [vignette][knit-print-vignette] for this function explains the 
+    process in great detail so I won't say too much, but fundamentally
+    
+- the function is a generic meaning it calls `knit_print.foo` for an object 
+  with class `foo`,
+  
+- it is the default argument of the `render` chunk option called on all output.
+
+Most of the time it is going to default to simply printing the object
+
+```{r}
+getS3method('knit_print', 'default')
+```
+
+::: {.callout-note}
+`normal_print` is just used to use the S4 method `show` in place of 
+    `print` for S4 objects.
+:::
+
+
+## Example
+
+We can intercept or overwrite this functionality as required.
+Suppose we define the following custom method, with specific argument names
+    (see the [vignette][knit-print-vignette] for more information on these).
+
+```{r}
+knit_print_strsplit <- function(x, options, inline, ...) {
+  for (xi in unlist(strsplit(x, ""))) print(xi)
+  invisible(NULL)
+}
+```
+
+To apply this to a single chunk we use `render: !expr knit_print_strsplit`
+    and to apply this globally we define (and register) an S3 method for
+    character objects.
+
+```{.r}
+knit_print.character <- knit_print_strsplit
+registerS3method("knit_print", "character", knit_print.character)
+```
+
+When applied, any *visible* character object has an altered output.
+
+```{r}
+#| echo: fenced
+#| render: !expr knit_print_strsplit
+"Hello World"
+```
+
+Which is clearly different to the default method as shown.
+
+```{r}
+"Hello World"
+```
+
+## `printr` Package
+
+As an aside, Yihui Xie also develops the [`printr`][printr-pkg] whose only 
+    purpose is to define several methods for this generic that can be applied
+    to various outputs including help files called by `?lm` syntax.
+
+It is definitely worth checking out before creating one of the methods
+    yourself.
+
+
+## Application to Tabsets
+
+Since we are always dealing with lists, the obvious step for us is to define
+    a `knit_print.list` method that also utilises `knit_child`.
+    
+Here is a simplified version of `jcutils::printer_tabset`, the full version
+    attempts to allow this to work in .Rmd and Quarto files.
+
+```{r}
+#| code-line-numbers: true
+printer_tabset <- function(x, options, ...) {
+  if (is.null(names(x))) names(x) <- seq_along(x)
+
+  header <- ":::: {.panel-tabset}"
+  footer <- "::::"
+
+  res <- lapply(seq_along(x), function(i) {
+    knitr::knit_child(
+      text = c(
+        "##### `r names(x)[i]`",
+        "",
+        "```{r}",
+        "#| echo: false",
+        "x[[i]]",
+        "```"
+      ),
+      envir = environment(),
+      quiet = TRUE
+    )
+  })
+
+  out <- paste(c(header, res, footer), collapse = "\n\n")
+  knitr::asis_output(out)
+}
+```
+
+Here is a line-by-line explanation of what this is doing for the curious.
+
+- Line 2.
+  For an unnamed list, we assign sequential names as is standard for `purrr`.
+  
+- Lines 4 - 5.
+  These are to surround the output to let Quarto know this is a tabset.
+  
+- Lines 7 - 20.
+  Looping over names and objects, `knit_child` on each element, making sure to
+  pass the environment as to avoid a `'x' not found` type of error.
+  
+- Lines 21 - 22.
+  Instead of printing, we return our object with the class `knit_asis` so knitr
+  can put this into the markdown file unaltered by code output like `[1] ...`.
+
+The beauty of this method is that `knit_print` is also called within the child
+    text and our method is passed to it. So we get nesting automatically!
+
+## Demonstration
+
+In my workflow, I will include a `registerS3method` (usually in the setup chunk)
+    to be applied to all lists.
+This can be disabled on a per-chunk basis by supplying a chunk option
+    `render !expr knitr::normal_print` as required.
+    
+Using [`jcutils`][jcutils-gh], this would be 
+
+```{r}
+#| echo: fenced
+#| eval: false
+registerS3method("knit_print", "list", jcutils::printer_tabset)
+```
+
+But for this blog, we can use
+
+```{r}
+registerS3method("knit_print", "list", printer_tabset)
+```
+
+For more examples, including `gt` see the in-progress vignette at the `jcutils`
+    [GitHub page][jcutils-vignette].
+    
+In this post though, suppose we make a nested list of visualisations of the
+    [Palmer penguins][palmerpenguins] dataset.
+
+```{r}
+data("penguins", package = "palmerpenguins")
+
+# Used to create a ggplot object
+gg_method <- function(.island, .x) {
+  penguins %>%
+    filter(.data$island == .island) %>%
+    ggplot(aes(x = .data[[.x]], y = .data$body_mass_g)) +
+    geom_point(na.rm = TRUE) +
+    labs(y = "Body Mass (g)", x = .x)
+}
+
+# Create a tibble of all combinations, with added plot column
+plot_tb <- 
+  expand_grid(
+    island = unique(penguins$island),
+    x = c("bill_length_mm", "bill_depth_mm", "flipper_length_mm")
+  ) %>%
+  mutate(plot = Map(gg_method, .data$island, .data$x))
+
+# Convert tibble to nested list using `split` twice
+nested_list <-
+  split(plot_tb, plot_tb$island) %>%
+  map(~ split(.x, .x$x)) %>%
+  modify_depth(.depth = 2, ~ .x$plot[[1]])
+```
+
+Here, the top top-level of the list details the island variable,
+
+```{r}
+names(nested_list)
+```
+
+And the second level indicates the variable to be used on the x-axis,
+
+```{r}
+names(nested_list[[1]])
+```
+
+To print a list of plots, making the object visible creates expected tabsets.
+
+```{r}
+nested_list$Biscoe
+```
+
+I think the real advantage comes from nested lists, which I unfortunately 
+    couldn't get working in .Rmd files, but works fine for Quarto formats
+    like this blog!
+    
+```{r}
+nested_list
+```
+
+Even better than this is the fact that each sub-list is treated independently 
+    and so ragged lists (lists of different lengths) will also work.
+
+
+## Image Credit {.appendix}
+
+Josh Cowley.
+October 25th, 2022.
+"Quayside Stone Sculptures, Newcastle Upon Tyne".
+
+<!-- Hyperlinks -->
+
+[jcblog-2022-09-29]:
+  https://josh.quarto.pub/posts/2022-09-29-quarto-tabsets/2022-09-29-quarto-tabsets.html
+
+[cderv-so]:
+  https://stackoverflow.com/a/73716823
+
+[cderv-quarto]:
+  https://github.com/quarto-dev/quarto-cli/issues/2370#issuecomment-1241946395
+  
+[knit-print-vignette]:
+    https://cran.r-project.org/web/packages/knitr/vignettes/knit_print.html
+    
+[printr-pkg]:
+  https://cran.r-project.org/web/packages/printr/vignettes/printr.html
+  
+[palmerpenguins]:
+  https://allisonhorst.github.io/palmerpenguins/
+  
+[jcutils-vignette]:
+  https://github.com/nclJoshCowley/jcutils/blob/master/inst/reports/knit-printer-tabset.qmd
+  
+[jcutils-gh]:
+  https://github.com/nclJoshCowley/jcutils
