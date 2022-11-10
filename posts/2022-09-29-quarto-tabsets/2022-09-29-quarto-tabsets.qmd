@@ -26,6 +26,14 @@ library(purrr)
 library(tibble)
 ```
 
+::: {.callout-important}
+This method of printing tabsets is outdated and it is advised to use the method
+described in [a new post][jcblog-2022-11-10].
+:::
+
+[jcblog-2022-11-10]:
+  https://josh.quarto.pub/posts/2022-11-10-quarto-tabsets-update/2022-11-10-quarto-tabsets-update.html
+
 ## Tl;dr
 
 :::{.callout-note collapse="true"}
