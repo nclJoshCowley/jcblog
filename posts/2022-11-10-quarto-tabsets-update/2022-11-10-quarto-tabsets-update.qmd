@@ -7,7 +7,7 @@ description: |
   tabsets. Can we improve this function using `knit_print`?
   
 categories: [quarto]
-# image: "TODO.jpg"
+image: "20221110_154933.jpg"
 ---
 
 ```{r setup}
