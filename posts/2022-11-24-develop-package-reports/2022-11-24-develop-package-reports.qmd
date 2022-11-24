@@ -1,0 +1,187 @@
+---
+title: "Package Development and Reporting"
+date: "2022-11-24"
+
+description: |
+  You've just created a package that will fit your model to any dataset the 
+  user supplies. How would the user view the model output and diagnostics?
+  
+categories: [quarto, package development]
+# image: "20221110_154933.jpg"
+---
+
+```{r setup}
+#| include = FALSE
+library(jcutils)
+jcutils::knitr_default_setup(echo = TRUE)
+```
+
+## Tl;dr
+
+:::{.callout-note collapse="true"}
+
+## Tl;dr
+
+Holding package files in `inst/reports` we can combine `system.file(...)` with
+    `knitr::knit_child(...)` to create a `include_report` generic to allow 
+    subreports to be added based on fit objects.
+
+:::
+
+## Why?
+
+Most of the packages I have been working on lately are mainly used for one 
+    purpose: fit some model to the data and show the output.
+
+If you are new to creating packages that this specific purpose, I highly 
+    recommend [Conventions for R Modeling Packages][tidymodel-convention].
+
+## Package Components
+
+Here are the main components any modelling package needs, in my opinion,
+
+1. a `fit` function that returns a classed object;
+
+1. a `predict` method (see `?stats::predict`);
+
+1. a `print` method;
+
+1. a `tidy` method;
+
+1. some form of example, either in `data/` or a full simulation study that
+   is callable by some function.
+
+::: {.callout-note}
+By adding a class to the model output we can define methods for already
+    existing generics such as `print`, `summary` and `tidy`.
+:::
+  
+I hope to expand on this more in the coming weeks but let's suppose we have a
+    package called `foo` that can fit to some data via `foofit(...)`
+
+## Reporting
+
+We create a report in the `inst/reports` directory, I have found that creating
+    a snippet / template that only expected a single object named `fit` allows
+    most of the model to be shown but this is clearly situational.
+    
+It may be beneficial to supply more objects, for example, a test data set
+    to broadcast predictive power.
+
+::: {.callout-note}
+Placing any file in `inst/` means that when the package is built or installed
+    by another user, it will be put in the package directory which we can
+    access programmatically.
+:::
+    
+To get the path to the report, we simply use
+
+```{.r}
+system.file(
+  "reports", "foo-report.qmd",
+  package = "foo",
+  mustWork = TRUE
+)
+```
+
+Using this pattern allows for two main possibilities
+
+1. render the report to some user-specified directory;
+
+1. include the report as a knitr child.
+
+In my workflow, since the only requisite is some object named `fit`, I opt for
+    the second and use the report as the `text` argument to the 
+    `knitr::knit_child` method.
+    
+Moreover, since the object has a class we can use the S3 generic / method
+system.
+
+### Generic
+
+First, define a generic that can be placed in any report and used by any package.
+
+```{r}
+include_report <- function (object, type, ...) {
+    UseMethod("include_report")
+}
+```
+
+I choose to define a method for a simple character to reduce code repetition
+    but any new methods can avoid using / needing this.
+    
+This is because the method assumes that we want to pass the child document
+    as text only and creates a new environment to ensure no side effects
+    are kept.
+    
+If we **wanted** side-effects, we would simply pass `knitr::knit_global()` to
+    the `envir` argument.
+    
+Further, note the `...` arguments are passed to the environment to ensure
+    the report has access to what it needs to work.
+    
+```{r}
+include_report.character <- function (object, ...) {
+    envir <- rlang::child_env(.parent = knitr::knit_global(), ...)
+    
+    input_text <- readLines(object)
+    
+    out <- knitr::knit_child(
+      text = input_text,
+      quiet = TRUE,
+      envir = envir
+    )
+    return(structure(out, class = "knit_asis", knit_cacheable = NA))
+}
+```
+
+### Method
+
+Then, we can define a method for our hypothetical object and even dispatch
+    based on type.
+
+```{.r}
+include_report.foofit <- function(object, type, ...) {
+  report_type <- match.arg(type, choices = c("analysis", "prediction"))
+
+  input_filename <- 
+    switch(
+      report_type,
+      "analysis" = "foo-analysis.qmd",
+      "prediction" = "cross-validation.qmd"
+    )
+  
+  include_report(
+    system.file("reports", input_filename, package = "foo", mustWork = TRUE),
+    fit = object
+  )
+}
+```
+
+### Implementation
+
+We can then fit the data in a main report in the usual way,
+
+```{.r}
+fit <- foo::foofit(...)
+```
+
+And include any analysis with a single line,
+
+```{.r}
+include_report(fit)
+```
+
+
+<!--
+## Image Credit {.appendix}
+
+Josh Cowley.
+November 25th, 2022.
+"TBC"
+-->
+
+<!-- Hyperlinks -->
+
+[tidymodel-convention]:
+  https://tidymodels.github.io/model-implementation-principles/
