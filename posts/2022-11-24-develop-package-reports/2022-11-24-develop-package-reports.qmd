@@ -7,7 +7,7 @@ description: |
   user supplies. How would the user view the model output and diagnostics?
   
 categories: [quarto, package development]
-# image: "20221110_154933.jpg"
+image: "20221201_155949.jpg"
 ---
 
 ```{r setup}
@@ -173,13 +173,11 @@ include_report(fit)
 ```
 
 
-<!--
 ## Image Credit {.appendix}
 
 Josh Cowley.
-November 25th, 2022.
-"TBC"
--->
+December 1st, 2022.
+"Reflections on a placid Tyne"
 
 <!-- Hyperlinks -->
 
