@@ -1,0 +1,21 @@
+data {
+  n = length(y)
+  
+  # Ones Trick
+  z = rep(1, n)
+  C = 10000
+}
+model {
+  # Likelihood
+  for (i in 1:n) {
+    z[i] ~ dbern(L[i] / C)
+
+    L[i] = ifelse(is_obs[i], y_pdf[i], y_cdf[i])
+    y_pdf[i] = dnorm(y[i], mean, prec)
+    y_cdf[i] = phi((y[i] - mean) * sqrt(prec))
+  }
+
+  # Prior
+  mean ~ dnorm(0, 0.1)
+  prec ~ dgamma(1, 1)
+}

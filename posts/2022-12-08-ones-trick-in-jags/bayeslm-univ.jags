@@ -1,0 +1,13 @@
+data {
+  n = dim(y)
+}
+model {
+  # Likelihood
+  for (i in 1:n) {
+    y[i] ~ dnorm(mean, prec)
+  }
+
+  # Prior
+  mean ~ dnorm(0, 0.1)
+  prec ~ dgamma(1, 1)
+}
