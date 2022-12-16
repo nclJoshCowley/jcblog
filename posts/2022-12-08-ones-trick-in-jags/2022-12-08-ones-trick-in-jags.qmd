@@ -137,18 +137,8 @@ $$
 $$
 
 As in JAGS, we parameterise by the mean, $\mu$, and precision $\tau$.
-
-We can use $f$ in JAGS via the `dnorm` function but for the CDF we must use
-    the `phi` ($\phi$) function (the CDF of a $N(0, 1)$) and the fact that
-    
-$$
-    F(y | \mu, \tau)
-        = \phi \left(\frac{y - \mu}{\sigma} \right)
-        = \phi \left(\sqrt{\tau} \, (y - \mu) \right)
-    ,
-$$
-where the standard deviation is the square root of the inverse precision,
-    $\sigma^2 = 1 / \tau$.
+We use the built-in `dnorm` and `pnorm` JAGS functions for $f$ and $F$ 
+    respectively.
     
 To calculate the likelihood in JAGS, assuming we have `y` and `is_obs` passed
     as data, we use the following
@@ -158,7 +148,7 @@ for (i in 1:n) {
   L[i] = ifelse(is_obs[i], y_pdf[i], y_cdf[i])
   
   y_pdf[i] = dnorm(y[i], mean, prec)
-  y_cdf[i] = phi((y[i] - mean) * sqrt(prec))
+  y_cdf[i] = pnorm(y[i], mean, prec)
 }
 ```
 
@@ -312,6 +302,9 @@ trace_mean <-
           alpha = 0.6
         ) +
         ggplot2::geom_hline(yintercept = params$mean, linetype = "dashed") +
+        ggplot2::expand_limits(
+          y = c(0, params$mean + 1.5 * sqrt(1 / params$prec))
+        ) +
         ggplot2::labs(colour = "Chain", y = NULL, x = NULL, subtitle = .nm)
     })
 

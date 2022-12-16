@@ -12,7 +12,7 @@ model {
 
     L[i] = ifelse(is_obs[i], y_pdf[i], y_cdf[i])
     y_pdf[i] = dnorm(y[i], mean, prec)
-    y_cdf[i] = phi((y[i] - mean) * sqrt(prec))
+    y_cdf[i] = pnorm(y[i], mean, prec)
   }
 
   # Prior
