@@ -1,4 +1,4 @@
 - source: project
   quarto-pub:
     - id: 4cdb1836-4ec0-4720-a8f7-80454ec2929a
-      url: 'https://quartopub.com/sites/josh/jcblog'
+      url: 'https://josh.quarto.pub/jcblog'
