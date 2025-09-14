@@ -1,0 +1,260 @@
+---
+title: "Testing for Varying Slopes"
+date: "2025-09-14"
+
+description: |
+  I was recently shown a visualisation of defect probability against a 
+  continuous predictor with stratification of three categories.
+  The trend visually appeared to follow the same trend for different 
+  intercepts but how do we quantitatively test this?
+  
+categories: [likelihood, test]
+image: "jorg-angeli-S56zN8cV5fk-unsplash.jpg"
+
+params:
+  seed: 123
+---
+
+```{r}
+#| label: setup
+#| include: FALSE
+set.seed(params$seed)
+
+source("simulate-logistic.R")
+source("visualise-relationship.R")
+
+library(jcutils)
+jcutils::knitr_default_setup(echo = TRUE, base_size = 16)
+
+ggplot2::theme_update(
+  plot.subtitle = ggplot2::element_text(color = "grey40"),
+  plot.caption = ggplot2::element_text(size = 10),
+  legend.position = "none"
+)
+```
+
+## Tl;dr
+
+:::{.callout-note collapse="true"}
+
+## Tl;dr
+
+We compare a model with interaction and one without and then compare model fits
+    using a likelihood ratio test.
+
+```{.r}
+anova(
+  stats::glm(event ~ category + x, data = ...),
+  stats::glm(event ~ category * x, data = ...),
+  test = "Chisq"
+)
+```
+:::
+
+## ANCOVA
+
+During research I came across a related topic, analysis of covariance (ANCOVA),
+    where the assumption is that all slopes are equal across the categories.
+Various tests for this assumption would also work.
+
+## Simulate Data 
+
+For our data, we are going to simulate from a mixture of logistic regression
+    models and introduce correlation by choosing matching parameter values.
+    
+Assume we have a function that can simulate a simple logistic regression
+    with a single continuous predictor and categorical variable.
+
+:::{.callout-note collapse="true"}
+### Simulation Function
+```{embed}
+#| lang: R
+"simulate-logistic.R"
+```  
+:::
+
+We then simulate data with identical slopes but varying intercepts.
+Values are chosen arbitrarily to produce similar probabilities around $0.2$.
+
+```{r}
+data_const_slopes <- 
+  dplyr::bind_rows(
+    a = simulate_logistic(n = 800, intercept = -0.73, slope = 2),
+    b = simulate_logistic(n = 800, intercept =     0, slope = 2),
+    c = simulate_logistic(n = 800, intercept =  0.73, slope = 2),
+    .id = "category"
+  )
+
+dplyr::slice_sample(data_const_slopes, by = "category", n = 2)
+```
+
+We can simulate similar data but allow the slopes to vary.
+
+```{r}
+data_varying_slopes <- 
+  dplyr::bind_rows(
+    a = simulate_logistic(n = 800, intercept = -0.73, slope = 0),
+    b = simulate_logistic(n = 800, intercept =     0, slope = 1.5),
+    c = simulate_logistic(n = 800, intercept =  0.73, slope = 3),
+    .id = "category"
+  )
+
+dplyr::slice_sample(data_varying_slopes, by = "category", n = 2)
+```
+
+
+## Visual Check
+
+We can't visualise binary data easily and the underlying probability is not
+    observed in the data.
+Instead, we bin the x axis and show the relative proportions of events for
+    each bin.
+    
+:::{.callout-note collapse="true"}
+### Visualisation Function
+```{embed}
+#| lang: R
+"visualise-relationship.R"
+```  
+:::
+
+We see that even with constant slopes, the fitted line may differ emphasising
+    the randomness of this data generation and sensitivity of the test to be
+    introduced.
+
+```{r}
+visualise_relationship(data_const_slopes)
+```
+
+On the other hand, the varying slopes are much more like what we designed.
+
+```{r}
+visualise_relationship(data_varying_slopes)
+```
+
+## Hypothesis Testing
+
+Our hypothesis is that there is no difference between the slopes and so the
+    relationship between the event and `x` is constant when we account for the
+    differences in each category.
+    
+For each dataset, we wish to compare the model that assumes constant slopes and
+    a model that does not.
+That is, compare
+$$
+    log \left( \frac{p}{1 - p} \right)
+        = \beta_0 
+        + \beta_1 \text{Category}
+        + \beta_2 x
+$$
+and
+$$
+    log \left( \frac{p}{1 - p} \right)
+        = \beta_0 
+        + \beta_1 \text{Category}
+        + \beta_2 x
+        + \beta_3 \left( \text{Category} * x \right)
+$$
+where I'm taking liberties with notation as we actually have $k - 1$ parameters
+    for $k$ categories.
+
+### Interaction Term
+
+One check would be to use $\beta_3$ and conclude 
+    **there is significant evidence** to reject constant slopes hypothesis
+    if and only if that variable is significant in output.
+    
+That is,
+
+```{.r}
+summary(stats::glm(event ~ category * x, data = data_const_slopes))
+
+#> Call:
+#> stats::glm(formula = event ~ category * x, data = data_const_slopes)
+#> 
+#> Coefficients:
+#>                Estimate  Std. Error  t value   Pr(>|t|)    
+#> (Intercept)  0.33611521  0.01640837 20.48437 < 2.22e-16 ***
+#> categoryb    0.12981216  0.02320552  5.59402 2.4712e-08 ***
+#> categoryc    0.31987413  0.02320550 13.78441 < 2.22e-16 ***
+#> x            0.51254296  0.05714525  8.96913 < 2.22e-16 ***
+#> categoryb:x -0.08387305  0.07989876 -1.04974    0.29394 <--- Not significant!  
+#> categoryc:x -0.09853952  0.07979254 -1.23495    0.21697 <--- Not significant!
+#> ---
+#> Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+#> 
+#> (...)
+
+summary(stats::glm(event ~ category * x, data = data_varying_slopes))
+
+#> Call:
+#> stats::glm(formula = event ~ category * x, data = data_varying_slopes)
+#>
+#> Coefficients:
+#>               Estimate Std. Error  t value   Pr(>|t|)    
+#> (Intercept) 0.30395919 0.01646713 18.45854 < 2.22e-16 ***
+#> categoryb   0.21056268 0.02328707  9.04204 < 2.22e-16 ***
+#> categoryc   0.34574334 0.02329555 14.84161 < 2.22e-16 ***
+#> x           0.03580244 0.05796226  0.61769    0.53684    
+#> categoryb:x 0.33890840 0.08141870  4.16254 3.2585e-05 *** <--- Significant!
+#> categoryc:x 0.57893164 0.08211629  7.05014 2.3289e-12 *** <--- Significant!
+#> ---
+#> Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+#> 
+#> (...)
+```
+
+One advantage here being that we get a p-value for each new slope after the
+    reference category (category A).
+If you have enough categories or enact enough tests, it would be expected
+    that some p-values are significant even when the slopes are identical
+    (Type I error).
+
+### Likelihood Ratio Test
+
+A formal approach would be to fit the two (nested) models and assess if the
+    introduction of $\beta_3$ is worth the added complexity to the model.
+We can do this in a GLM context using a Chi-squared test.
+
+For the example with no change in slope, we observe the p-value from the
+    Chi-squared test (model 2 against model 1) is larger than $0.05$ so we
+    do not have evidence to reject the hypothesis that the slopes are
+    identical.
+
+```{r}
+anova(
+  stats::glm(event ~ category + x, data = data_const_slopes),
+  stats::glm(event ~ category * x, data = data_const_slopes),
+  test = "Chisq"
+)
+```
+
+On the contrary, the different slopes dataset results in a very significant
+    p-value and so we have very significant evidence that the added term
+    improved the model and the slopes are different.
+
+```{r}
+anova(
+  stats::glm(event ~ category + x, data = data_varying_slopes),
+  stats::glm(event ~ category * x, data = data_varying_slopes),
+  test = "Chisq"
+)
+```
+
+## Final Words
+
+We have shown how to test a hypothesis within a frequentist approach and create
+    a p-value, but interpreting these results with an applied dataset is
+    difficult and should be handled with care,
+    <https://en.wikipedia.org/wiki/Misuse_of_p-values>.
+    
+My initial approach to this would typically be Bayesian
+    (see Bayesian varying slope models) so if there is anything I have missed,
+    please let me know!
+
+
+## Image Credit {.appendix}
+
+[Jörg Angeli](https://unsplash.com/@joerga).
+August 28th, 2018.
+[Source](https://unsplash.com/photos/gray-concrete-castle-S56zN8cV5fk).
